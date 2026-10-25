@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yeni Nesil Kahvehane - Adisyon ve Kasa Paneli</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f1f5f9; color: #334155; padding-bottom: 70px; }
+        header { background-color: #78350f; color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
+        .tab-bar { display: flex; gap: 8px; margin-bottom: 20px; background: #cbd5e1; padding: 4px; border-radius: 10px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: transparent; color: #475569; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        .tab-btn.active { background: white; color: #78350f; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        .card { background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; height: 110px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
+        .card.dolu { background: #fff1f2; border-color: #fecdd3; }
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-amber { background: #d97706; color: white; }
+        .btn-brown { background: #78350f; color: white; }
+        .btn-green { background: #10b981; color: white; }
+        .btn-red { background: #ef4444; color: white; }
+        .btn-gray { background: #e2e8f0; color: #334155; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 16px; z-index: 100; }
+        .modal.open { display: flex; }
+        .modal-box { background: white; width: 100%; max-width: 480px; border-radius: 16px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin: 6px 0 14px 0; font-size: 14px; }
+        .row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; }
+        .empty-state { text-align: center; padding: 40px 20px; background: white; border-radius: 12px; border: 1px dashed #cbd5e1; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h2>☕ Yeni Nesil Kahvehane</h2>
+        <span id="clock">--:--</span>
+    </header>
+
+    <div class="container">
+        <!-- Sekmeler -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('masalar', this)">🪑 Müşteri Masaları</button>
+            <button class="tab-btn" onclick="switchTab('menu', this)">📋 Menü</button>
+            <button class="tab-btn" onclick="switchTab('veresiye', this)">📖 Veresiye</button>
+            <button class="tab-btn" onclick="switchTab('kasa', this)">💰 Kasa</button>
+        </div>
+
+        <!-- 1. MASALAR -->
+        <div id="sec-masalar">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Aktif Müşteriler / Masalar</h3>
+                <button class="btn btn-brown" onclick="openCreateTableModal()">+ Yeni Masa Aç</button>
+            </div>
+            <div id="tables-container">
+                <div class="grid" id="tables-grid"></div>
+            </div>
+        </div>
+
+        <!-- 2. MENÜ -->
+        <div id="sec-menu" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Ürün Listesi & Fiyat Düzenleme</h3>
+                <button class="btn btn-brown" onclick="openAddProductModal()">+ Yeni Ürün Ekle</button>
+            </div>
+            <div id="menu-list"></div>
+        </div>
+
+        <!-- 3. VERESİYE -->
+        <div id="sec-veresiye" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Veresiye Defteri</h3>
+                <button class="btn btn-brown" onclick="openModal('modal-ver')">+ Borç Ekle</button>
+            </div>
+            <div class="card" style="height:auto; margin-bottom:12px; background:#fffbeb;">
+                <small style="color:#b45309; font-weight:bold;">TOPLAM ALACAK</small>
+                <h2 id="veresiye-total" style="color:#d97706;">₺0.00</h2>
+            </div>
+            <div id="veresiye-list"></div>
+        </div>
+
+        <!-- 4. KASA -->
+        <div id="sec-kasa" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Günlük Kasa</h3>
+                <button class="btn btn-red" onclick="archiveKasa()">Günü Kapat</button>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
+                <div class="card" style="height:auto;"><small style="color:#10b981; font-weight:bold;">GELİR</small><h3 id="k" style="color:#10b981;">₺0</h3></div>
+                <div class="card" style="height:auto;"><small style="color:#ef4444; font-weight:bold;">GİDER</small><h3 id="g" style="color:#ef4444;">₺0</h3></div>
+                <div class="card" style="height:auto;"><small style="color:#0284c7; font-weight:bold;">NET</small><h3 id="n" style="color:#0284c7;">₺0</h3></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <button class="btn btn-green" style="flex:1" onclick="openTrans('gelir')">+ Gelir Ekle</button>
+                <button class="btn btn-red" style="flex:1" onclick="openTrans('gider')">- Gider Ekle</button>
+            </div>
+            <div class="card" style="height:auto; margin-bottom:12px;"><h4 style="margin-bottom:8px;">İşlemler</h4><div id="trans-list"></div></div>
+            <div class="card" style="height:auto;"><h4 style="margin-bottom:8px;">Arşiv</h4><div id="archive-list"></div></div>
+        </div>
+    </div>
+
+    <!-- MASA DETAY MODAL -->
+    <div class="modal" id="modal-table">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 id="m-title">Müşteri / Masa</h3>
+                <button class="btn btn-gray" onclick="renameTable()">İsim Değiştir</button>
+            </div>
+
+            <!-- Masadaki Ürünler Listesi -->
+            <div id="m-orders" style="margin-bottom:12px; max-height:160px; overflow-y:auto;"></div>
+
+            <!-- Tıklanabilir Hızlı Ürün Butonları -->
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px; font-weight:bold; color:#64748b; display:block; margin-bottom:6px;">Ürün Eklemek İçin Tıklayın:</label>
+                <div id="m-quick-menu" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; max-height:150px; overflow-y:auto;"></div>
+            </div>
+
+            <div style="border-top:1px solid #cbd5e1; padding-top:10px; display:flex; justify-content:space-between; font-weight:bold; font-size:16px; margin-bottom:12px;">
+                <span>Toplam:</span> <span id="m-total" style="color:#d97706;">₺0.00</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button class="btn btn-gray" style="flex:1; padding:10px;" onclick="adjustTotal()">Tutarı Düzenle (İndirim / İkram)</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-green" style="flex:1" onclick="checkout('Nakit')">Nakit Öde & Kapat</button>
+                <button class="btn btn-amber" style="flex:1" onclick="checkout('Kart')">Kart Öde & Kapat</button>
+            </div>
+            <button class="btn btn-gray" style="width:100%; margin-top:10px;" onclick="closeModal('modal-table')">Kapat</button>
+        </div>
+    </div>
+
+    <!-- YENİ MASA / MÜŞTERİ AÇ MODAL -->
+    <div class="modal" id="modal-create-table">
+        <div class="modal-box">
+            <h3>Yeni Masa / Müşteri Aç</h3>
+            <label>Müşteri Adı veya Masa Tanımı</label>
+            <input type="text" id="new-table-name" placeholder="Örn: Ahmet Bey, Teras Masa 2, Yavuz">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-create-table')">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="createNewTable()">Masa Aç</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÜRÜN EKLE / DÜZENLE MODAL -->
+    <div class="modal" id="modal-prod">
+        <div class="modal-box">
+            <h3 id="p-modal-title">Ürün Ekle</h3>
+            <label>Ürün Adı</label><input type="text" id="p-name">
+            <label>Fiyat (₺)</label><input type="number" id="p-price" step="0.5">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-prod')">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="saveProd()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VERESİYE MODAL -->
+    <div class="modal" id="modal-ver">
+        <div class="modal-box">
+            <h3>Yeni Borç Kaydı</h3>
+            <label>Müşteri Adı</label><input type="text" id="vr-name">
+            <label>Tutar (₺)</label><input type="number" id="vr-amount" step="0.5">
+            <label>Açıklama</label><input type="text" id="vr-note">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-ver')">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="saveVer()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KASA İŞLEM MODAL -->
+    <div class="modal" id="modal-trans">
+        <div class="modal-box">
+            <h3 id="tr-title">İşlem Ekle</h3>
+            <label>Tutar (₺)</label><input type="number" id="tr-amount" step="0.5">
+            <label>Açıklama</label><input type="text" id="tr-desc">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-trans')">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="saveTrans()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = {
+            tables: [],
+            menu: [
+                {id: 1, name: 'Türk Kahvesi', price: 40},
+                {id: 2, name: 'Çay', price: 15},
+                {id: 3, name: 'Filtre Kahve', price: 50},
+                {id: 4, name: 'Çikolatalı Pasta', price: 90},
+                {id: 5, name: 'Soda', price: 25}
+            ],
+            veresiye: [],
+            kasa: {gelir: 0, gider: 0, trans: []},
+            archive: []
+        };
+
+        let activeTableId = null;
+        let editingProductId = null;
+        let transType = 'gelir';
+
+        function init() {
+            const saved = localStorage.getItem('kahvehane_v2');
+            if (saved) { try { db = JSON.parse(saved); } catch(e){} }
+            renderAll();
+            setInterval(() => {
+                document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }, 1000);
+        }
+
+        function persist() {
+            localStorage.setItem('kahvehane_v2', JSON.stringify(db));
+            renderAll();
+        }
+
+        function switchTab(tab, btn) {
+            ['masalar', 'menu', 'veresiye', 'kasa'].forEach(t => {
+                document.getElementById(`sec-${t}`).style.display = t === tab ? 'block' : 'none';
+            });
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function renderAll() {
+            const container = document.getElementById('tables-container');
+
+            if (db.tables.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3 style="margin-bottom:6px; color:#475569;">Mekanda Şu An Müşteri Yok</h3>
+                        <p style="font-size:13px;">Müşteri geldiğinde yukarıdaki <b>"+ Yeni Masa Aç"</b> butonunu kullanarak müşteri adı ile masa oluşturabilirsiniz.</p>
+                    </div>`;
+            } else {
+                container.innerHTML = `<div class="grid" id="tables-grid"></div>`;
+                const newGrid = document.getElementById('tables-grid');
+                db.tables.forEach(t => {
+                    const total = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+                    newGrid.innerHTML += `
+                        <div class="card dolu" onclick="openTable(${t.id})">
+                            <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                                <span style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.name}</span>
+                                <span style="width:10px; height:10px; border-radius:50%; background:#ef4444; flex-shrink:0;"></span>
+                            </div>
+                            <div style="font-size:18px; font-weight:bold; color:#e11d48;">₺${total.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Menü
+            const mList = document.getElementById('menu-list');
+            mList.innerHTML = '';
+            db.menu.forEach(m => {
+                mList.innerHTML += `
+                    <div class="row">
+                        <span><b>${m.name}</b> - ₺${m.price.toFixed(2)}</span>
+                        <div>
+                            <button class="btn btn-amber" style="padding:4px 8px; font-size:12px; margin-right:4px;" onclick="openEditProductModal(${m.id})">Düzenle</button>
+                            <button class="btn btn-red" style="padding:4px 8px; font-size:12px;" onclick="delMenu(${m.id})">Sil</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Veresiye
+            const vList = document.getElementById('veresiye-list');
+            vList.innerHTML = '';
+            let vTot = 0;
+            db.veresiye.forEach((v, idx) => {
+                vTot += v.amount;
+                vList.innerHTML += `
+                    <div class="row">
+                        <div><b>${v.name}</b><br><small>${v.note} (${v.date})</small></div>
+                        <div style="text-align:right;">
+                            <b style="color:#ef4444;">₺${v.amount.toFixed(2)}</b><br>
+                            <button class="btn btn-green" style="padding:4px 8px; font-size:11px; margin-top:4px;" onclick="payVer(${idx})">Ödeme Al</button>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('veresiye-total').innerText = `₺${vTot.toFixed(2)}`;
+
+            // Kasa
+            document.getElementById('k').innerText = `₺${db.kasa.gelir.toFixed(2)}`;
+            document.getElementById('g').innerText = `₺${db.kasa.gider.toFixed(2)}`;
+            document.getElementById('n').innerText = `₺${(db.kasa.gelir - db.kasa.gider).toFixed(2)}`;
+
+            const tList = document.getElementById('trans-list');
+            tList.innerHTML = '';
+            db.kasa.trans.forEach(tr => {
+                tList.innerHTML += `<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>${tr.desc}</span><b style="color:${tr.type==='gelir'?'#10b981':'#ef4444'}">₺${tr.amount.toFixed(2)}</b></div>`;
+            });
+
+            const aList = document.getElementById('archive-list');
+            aList.innerHTML = '';
+            db.archive.forEach(ar => {
+                aList.innerHTML += `<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>${ar.date}</span><b>Net: ₺${ar.net.toFixed(2)}</b></div>`;
+            });
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        // MASA AÇMA
+        function openCreateTableModal() {
+            document.getElementById('new-table-name').value = '';
+            openModal('modal-create-table');
+        }
+
+        function createNewTable() {
+            const name = document.getElementById('new-table-name').value.trim();
+            if (name) {
+                const newId = Date.now();
+                db.tables.push({ id: newId, name: name, orders: [] });
+                persist();
+                closeModal('modal-create-table');
+                openTable(newId);
+            } else {
+                alert("Lütfen bir müşteri adı veya masa ismi girin.");
+            }
+        }
+
+        function openTable(id) {
+            activeTableId = id;
+            const t = db.tables.find(x => x.id === id);
+            if (!t) return;
+
+            document.getElementById('m-title').innerText = t.name;
+
+            const qDiv = document.getElementById('m-quick-menu');
+            qDiv.innerHTML = '';
+            db.menu.forEach(m => {
+                qDiv.innerHTML += `
+                    <button class="btn btn-gray" style="text-align:left; padding:8px; font-size:12px;" onclick="addOrderDirect('${m.name}', ${m.price})">
+                        <b>${m.name}</b><br><span style="color:#d97706;">₺${m.price.toFixed(2)}</span>
+                    </button>
+                `;
+            });
+
+            const oDiv = document.getElementById('m-orders');
+            oDiv.innerHTML = t.orders.length === 0 ? '<small style="color:#94a3b8;">Henüz sipariş eklenmedi.</small>' : '';
+            t.orders.forEach((o, i) => {
+                oDiv.innerHTML += `
+                    <div class="row" style="margin-bottom:4px; padding:6px 10px;">
+                        <div><b>${o.name}</b><br><small>₺${o.price.toFixed(2)} x ${o.qty}</small></div>
+                        <div>
+                            <button class="btn btn-gray" style="padding:2px 6px; font-size:12px;" onclick="qtyChange(${i}, -1)">-</button>
+                            <span style="margin:0 4px; font-size:13px; font-weight:bold;">${o.qty}</span>
+                            <button class="btn btn-gray" style="padding:2px 6px; font-size:12px;" onclick="qtyChange(${i}, 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const tot = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            document.getElementById('m-total').innerText = `₺${tot.toFixed(2)}`;
+            openModal('modal-table');
+        }
+
+        function addOrderDirect(name, price) {
+            const t = db.tables.find(x => x.id === activeTableId);
+            const ex = t.orders.find(o => o.name === name);
+            if (ex) ex.qty++; else t.orders.push({name, price, qty: 1});
+            persist();
+            openTable(activeTableId);
+        }
+
+        function qtyChange(i, delta) {
+            const t = db.tables.find(x => x.id === activeTableId);
+            t.orders[i].qty += delta;
+            if (t.orders[i].qty <= 0) t.orders.splice(i, 1);
+            persist();
+            openTable(activeTableId);
+        }
+
+        function renameTable() {
+            const t = db.tables.find(x => x.id === activeTableId);
+            const nn = prompt("Yeni müşteri / masa adı:", t.name);
+            if (nn) { t.name = nn; persist(); openTable(activeTableId); }
+        }
+
+        function adjustTotal() {
+            const t = db.tables.find(x => x.id === activeTableId);
+            const nt = prompt("Yeni toplam tutar (₺):");
+            if (nt && !isNaN(nt)) {
+                t.orders = [{name: 'Özel Düzenlenmiş Tutar', price: parseFloat(nt), qty: 1}];
+                persist(); openTable(activeTableId);
+            }
+        }
+
+        // HESAP KAPATMA VE MASAYI SİLME
+        function checkout(type) {
+            const t = db.tables.find(x => x.id === activeTableId);
+            const tot = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            
+            db.kasa.gelir += tot;
+            db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (${type})`, amount: tot});
+            
+            db.tables = db.tables.filter(x => x.id !== activeTableId);
+            
+            persist(); 
+            closeModal('modal-table');
+        }
+
+        // ÜRÜN EKLEME / DÜZENLEME
+        function openAddProductModal() {
+            editingProductId = null;
+            document.getElementById('p-modal-title').innerText = "Yeni Ürün Ekle";
+            document.getElementById('p-name').value = '';
+            document.getElementById('p-price').value = '';
+            openModal('modal-prod');
+        }
+
+        function openEditProductModal(id) {
+            editingProductId = id;
+            const prod = db.menu.find(m => m.id === id);
+            document.getElementById('p-modal-title').innerText = "Ürün Düzenle";
+            document.getElementById('p-name').value = prod.name;
+            document.getElementById('p-price').value = prod.price;
+            openModal('modal-prod');
+        }
+
+        function saveProd() {
+            const name = document.getElementById('p-name').value.trim();
+            const price = parseFloat(document.getElementById('p-price').value);
+
+            if (name && !isNaN(price)) {
+                if (editingProductId) {
+                    const prod = db.menu.find(m => m.id === editingProductId);
+                    prod.name = name;
+                    prod.price = price;
+                } else {
+                    db.menu.push({id: Date.now(), name, price});
+                }
+                persist(); 
+                closeModal('modal-prod');
+            }
+        }
+
+        function delMenu(id) {
+            if(confirm("Bu ürünü silmek istiyor musunuz?")) {
+                db.menu = db.menu.filter(x => x.id !== id);
+                persist();
+            }
+        }
+
+        function saveVer() {
+            const name = document.getElementById('vr-name').value.trim();
+            const amount = parseFloat(document.getElementById('vr-amount').value);
+            const note = document.getElementById('vr-note').value.trim();
+            if (name && !isNaN(amount)) {
+                db.veresiye.push({name, amount, note, date: new Date().toLocaleDateString()});
+                persist(); closeModal('modal-ver');
+            }
+        }
+
+        function payVer(idx) {
+            const v = db.veresiye[idx];
+            db.kasa.gelir += v.amount;
+            db.kasa.trans.unshift({type: 'gelir', desc: `Veresiye Tahsilat (${v.name})`, amount: v.amount});
+            db.veresiye.splice(idx, 1);
+            persist();
+        }
+
+        function openTrans(type) {
+            transType = type;
+            document.getElementById('tr-title').innerText = type === 'gelir' ? 'Gelir Ekle' : 'Gider Ekle';
+            openModal('modal-trans');
+        }
+
+        function saveTrans() {
+            const amount = parseFloat(document.getElementById('tr-amount').value);
+            const desc = document.getElementById('tr-desc').value.trim();
+            if (!isNaN(amount) && desc) {
+                if (transType === 'gelir') db.kasa.gelir += amount;
+                else db.kasa.gider += amount;
+                db.kasa.trans.unshift({type: transType, desc, amount});
+                persist(); closeModal('modal-trans');
+            }
+        }
+
+        function archiveKasa() {
+            const net = db.kasa.gelir - db.kasa.gider;
+            if (confirm(`Günü kapatıp ₺${net.toFixed(2)} net kazancı arşivlemek istiyor musunuz?`)) {
+                db.archive.unshift({date: new Date().toLocaleDateString(), net});
+                db.kasa = {gelir: 0, gider: 0, trans: []};
+                persist();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
