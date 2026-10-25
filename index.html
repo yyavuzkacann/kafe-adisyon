@@ -9,8 +9,8 @@
         body { background-color: #f1f5f9; color: #334155; padding-bottom: 70px; }
         header { background-color: #78350f; color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
         .container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
-        .tab-bar { display: flex; gap: 6px; margin-bottom: 20px; background: #cbd5e1; padding: 4px; border-radius: 10px; overflow-x: auto; }
-        .tab-btn { flex: 1; min-width: 90px; padding: 10px 6px; border: none; background: transparent; color: #475569; font-weight: bold; font-size: 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+        .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; background: #cbd5e1; padding: 4px; border-radius: 10px; overflow-x: auto; }
+        .tab-btn { flex: 1; min-width: 80px; padding: 10px 4px; border: none; background: transparent; color: #475569; font-weight: bold; font-size: 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
         .tab-btn.active { background: white; color: #78350f; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
         .card { background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; height: 110px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
@@ -43,7 +43,8 @@
             <button class="tab-btn" onclick="switchTab('menu', this)">📋 Menü</button>
             <button class="tab-btn" onclick="switchTab('veresiye', this)">📖 Veresiye</button>
             <button class="tab-btn" onclick="switchTab('giderler', this)">📉 Giderler</button>
-            <button class="tab-btn" onclick="switchTab('raporlar', this)">📊 Ürün Satış</button>
+            <button class="tab-btn" onclick="switchTab('raporlar', this)">📊 Satış</button>
+            <button class="tab-btn" onclick="switchTab('aylik', this)">📅 Aylık Rapor</button>
             <button class="tab-btn" onclick="switchTab('kasa', this)">💰 Kasa</button>
         </div>
 
@@ -96,13 +97,32 @@
         <!-- 5. ÜRÜN SATIŞ RAPORLARI -->
         <div id="sec-raporlar" style="display:none;">
             <div style="margin-bottom:12px;">
-                <h3>Ürün Bazlı Satış & Tüketim Raporu</h3>
-                <p style="font-size:12px; color:#64748b; margin-top:2px;">Hangi üründen kaç adet satıldığını ve ne kadar ciro yapıldığını buradan takip edin.</p>
+                <h3>Bugünkü Ürün Satış & Tüketim Raporu</h3>
+                <p style="font-size:12px; color:#64748b; margin-top:2px;">Bugün satılan ürünlerin adet ve ciro dökümü.</p>
             </div>
             <div id="product-sales-list"></div>
         </div>
 
-        <!-- 6. KASA -->
+        <!-- 6. AYLIK RAPOR -->
+        <div id="sec-aylik" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Aylık Finansal & Satış Raporu</h3>
+                <select id="month-selector" style="width:160px; margin:0;" onchange="renderMonthlyReport()">
+                    <!-- Javascript ile doldurulacak -->
+                </select>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
+                <div class="card" style="height:auto;"><small style="color:#10b981; font-weight:bold;">AYLIK GELİR</small><h3 id="m-gelir" style="color:#10b981;">₺0</h3></div>
+                <div class="card" style="height:auto;"><small style="color:#ef4444; font-weight:bold;">AYLIK GİDER</small><h3 id="m-gider" style="color:#ef4444;">₺0</h3></div>
+                <div class="card" style="height:auto;"><small style="color:#0284c7; font-weight:bold;">AYLIK NET</small><h3 id="m-net" style="color:#0284c7;">₺0</h3></div>
+            </div>
+            <div class="card" style="height:auto; margin-bottom:12px;">
+                <h4 style="margin-bottom:8px;">Seçilen Ayın Ürün Satışları</h4>
+                <div id="monthly-product-sales"></div>
+            </div>
+        </div>
+
+        <!-- 7. KASA -->
         <div id="sec-kasa" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Günlük Kasa</h3>
@@ -238,10 +258,10 @@
                 {id: 5, name: 'Soda', price: 25}
             ],
             veresiye: [],
-            giderler: [], // {id, desc, amount, date}
+            giderler: [], 
             salesStats: {}, // { "Türk Kahvesi": { qty: 12, revenue: 480 } }
             kasa: { gelir: 0, gider: 0, trans: [] },
-            archive: []
+            archive: [] // [{ date, net, gelir, gider, salesStats }]
         };
 
         let activeTableId = null;
@@ -253,6 +273,7 @@
             if (saved) { try { db = JSON.parse(saved); } catch(e){} }
             if(!db.salesStats) db.salesStats = {};
             if(!db.giderler) db.giderler = [];
+            if(!db.archive) db.archive = [];
             renderAll();
             setInterval(() => {
                 document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -265,11 +286,15 @@
         }
 
         function switchTab(tab, btn) {
-            ['masalar', 'menu', 'veresiye', 'giderler', 'raporlar', 'kasa'].forEach(t => {
+            ['masalar', 'menu', 'veresiye', 'giderler', 'raporlar', 'aylik', 'kasa'].forEach(t => {
                 document.getElementById(`sec-${t}`).style.display = t === tab ? 'block' : 'none';
             });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            if(tab === 'aylik') {
+                initMonthSelector();
+                renderMonthlyReport();
+            }
         }
 
         function renderAll() {
@@ -353,14 +378,13 @@
             }
             document.getElementById('gider-total').innerText = `₺${gTot.toFixed(2)}`;
 
-            // Ürün Satış Raporları
+            // Ürün Satış Raporları (Günlük)
             const salesList = document.getElementById('product-sales-list');
             salesList.innerHTML = '';
             const stats = db.salesStats;
             if(Object.keys(stats).length === 0) {
-                salesList.innerHTML = `<div class="empty-state"><p style="font-size:12px;">Henüz tamamlanan satış bulunmuyor.</p></div>`;
+                salesList.innerHTML = `<div class="empty-state"><p style="font-size:12px;">Bugün henüz tamamlanan satış bulunmuyor.</p></div>`;
             } else {
-                // Çok satılandan aza sıralama
                 const sortedProducts = Object.keys(stats).sort((a,b) => stats[b].qty - stats[a].qty);
                 sortedProducts.forEach(prodName => {
                     const item = stats[prodName];
@@ -497,7 +521,6 @@
             const tot = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
             if(tot <= 0) { alert("Boş masa kapatılamaz."); return; }
 
-            // Ürün satış istatistiklerini güncelle
             t.orders.forEach(o => {
                 if(!db.salesStats[o.name]) {
                     db.salesStats[o.name] = { qty: 0, revenue: 0 };
@@ -508,14 +531,13 @@
             
             db.kasa.gelir += tot;
             db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (${type})`, amount: tot});
-            
             db.tables = db.tables.filter(x => x.id !== activeTableId);
             
             persist(); 
             closeModal('modal-table');
         }
 
-        // GİDER YÖNETİMİ
+        // GİDER YÖNETİMİ (SİLİNCE KASADAN DÜŞME ÖZELLİĞİ)
         function saveGider() {
             const desc = document.getElementById('gider-desc').value.trim();
             const amount = parseFloat(document.getElementById('gider-amount').value);
@@ -533,7 +555,10 @@
 
         function delGider(idx) {
             if(confirm("Bu gider kaydını silmek istiyor musunuz?")) {
+                const removedGider = db.giderler[idx];
                 db.giderler.splice(idx, 1);
+                // İşlem geçmişinden de bu gideri kaldır
+                db.kasa.trans = db.kasa.trans.filter(tr => !(tr.type === 'gider' && tr.desc === `Gider: ${removedGider.desc}` && tr.amount === removedGider.amount));
                 persist();
             }
         }
@@ -557,12 +582,10 @@
             }
 
             if(paid >= v.amount) {
-                // Borcun tamamı veya fazlası ödendiyse kaydı tamamen sil
                 db.kasa.gelir += v.amount;
                 db.kasa.trans.unshift({type: 'gelir', desc: `Veresiye Tahsilat (${v.name})`, amount: v.amount});
                 db.veresiye.splice(activeVeresiyeIndex, 1);
             } else {
-                // Parçalı ödeme
                 v.amount -= paid;
                 db.kasa.gelir += paid;
                 db.kasa.trans.unshift({type: 'gelir', desc: `Parçalı Veresiye Tahsilatı (${v.name})`, amount: paid});
@@ -624,13 +647,21 @@
             }
         }
 
+        // GÜNÜ KAPAT (ÜRÜNLERİ DE ARŞİVE AKTARIR)
         function archiveKasa() {
             let totalGider = db.giderler.reduce((s, g) => s + g.amount, 0);
             const net = db.kasa.gelir - totalGider;
-            if (confirm(`Günü kapatıp ₺${net.toFixed(2)} net kârı arşivlemek istiyor musunuz?\n(Giderler kasadan düşülmüştür)`)) {
-                db.archive.unshift({date: new Date().toLocaleDateString(), net});
+            if (confirm(`Günü kapatıp ₺${net.toFixed(2)} net kârı ve bugünkü satışları arşivlemek istiyor musunuz?`)) {
+                db.archive.unshift({
+                    date: new Date().toLocaleDateString(), 
+                    net, 
+                    gelir: db.kasa.gelir, 
+                    gider: totalGider, 
+                    salesStats: { ...db.salesStats }
+                });
                 db.kasa = {gelir: 0, gider: 0, trans: []};
                 db.giderler = [];
+                db.salesStats = {};
                 persist();
             }
         }
@@ -639,6 +670,101 @@
             if(confirm("Geçmiş gün raporları arşivini tamamen temizlemek istiyor musunuz?")) {
                 db.archive = [];
                 persist();
+            }
+        }
+
+        // AYLIK RAPOR MANTIĞI
+        function initMonthSelector() {
+            const sel = document.getElementById('month-selector');
+            const currentVal = sel.value;
+            
+            // Mevcut arşivden ve bugünden ayları bul
+            const monthsSet = new Set();
+            const now = new Date();
+            monthsSet.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}`);
+
+            db.archive.forEach(ar => {
+                const parts = ar.date.split('.'); // GG.AA.YYYY
+                if(parts.length === 3) {
+                    monthsSet.add(`${parts[2]}-${parts[1]}`);
+                }
+            });
+
+            sel.innerHTML = '';
+            const sortedMonths = Array.from(monthsSet).sort().reverse();
+            sortedMonths.forEach(m => {
+                const [y, mm] = m.split('-');
+                const dateObj = new Date(y, parseInt(mm)-1, 1);
+                const monthName = dateObj.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+                sel.innerHTML += `<option value="${m}">${monthName}</option>`;
+            });
+
+            if(currentVal && monthsSet.has(currentVal)) {
+                sel.value = currentVal;
+            }
+        }
+
+        function renderMonthlyReport() {
+            const selVal = document.getElementById('month-selector').value;
+            if(!selVal) return;
+
+            const [targetY, targetM] = selVal.split('-');
+
+            let totalGelir = 0;
+            let totalGider = 0;
+            let monthlySales = {};
+
+            // Arşivdeki günleri topla
+            db.archive.forEach(ar => {
+                const parts = ar.date.split('.');
+                if(parts.length === 3 && parts[2] === targetY && parts[1] === targetM) {
+                    totalGelir += (ar.gelir || 0);
+                    totalGider += (ar.gider || 0);
+                    
+                    if(ar.salesStats) {
+                        for(let pName in ar.salesStats) {
+                            if(!monthlySales[pName]) monthlySales[pName] = { qty: 0, revenue: 0 };
+                            monthlySales[pName].qty += ar.salesStats[pName].qty;
+                            monthlySales[pName].revenue += ar.salesStats[pName].revenue;
+                        }
+                    }
+                }
+            });
+
+            // Eğer seçilen ay içindeysek ve henüz kapanmamış bugünkü veriler de varsa onları da ekle
+            const now = new Date();
+            if(now.getFullYear().toString() === targetY && (now.getMonth()+1).toString().padStart(2,'0') === targetM) {
+                totalGelir += db.kasa.gelir;
+                totalGider += db.giderler.reduce((s, g) => s + g.amount, 0);
+
+                for(let pName in db.salesStats) {
+                    if(!monthlySales[pName]) monthlySales[pName] = { qty: 0, revenue: 0 };
+                    monthlySales[pName].qty += db.salesStats[pName].qty;
+                    monthlySales[pName].revenue += db.salesStats[pName].revenue;
+                }
+            }
+
+            let monthlyNet = totalGelir - totalGider;
+
+            document.getElementById('m-gelir').innerText = `₺${totalGelir.toFixed(2)}`;
+            document.getElementById('m-gider').innerText = `₺${totalGider.toFixed(2)}`;
+            document.getElementById('m-net').innerText = `₺${monthlyNet.toFixed(2)}`;
+
+            const mSalesDiv = document.getElementById('monthly-product-sales');
+            mSalesDiv.innerHTML = '';
+            if(Object.keys(monthlySales).length === 0) {
+                mSalesDiv.innerHTML = `<small style="color:#94a3b8;">Bu aya ait satış verisi bulunmuyor.</small>`;
+            } else {
+                const sortedMProducts = Object.keys(monthlySales).sort((a,b) => monthlySales[b].qty - monthlySales[a].qty);
+                sortedMProducts.forEach(pName => {
+                    const item = monthlySales[pName];
+                    mSalesDiv.innerHTML += `
+                        <div class="row">
+                            <div><b>${pName}</b><br><small style="color:#64748b;">Toplam Adet: <b>${item.qty}</b></small></div>
+                            <div style="text-align:right; font-weight:bold; color:#d97706;">₺${item.revenue.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
             }
         }
 
