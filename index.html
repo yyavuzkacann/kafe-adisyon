@@ -163,7 +163,7 @@
             </div>
 
             <div style="border-top:1px solid #cbd5e1; padding-top:10px; display:flex; justify-content:space-between; font-weight:bold; font-size:16px; margin-bottom:12px;">
-                <span>Toplam:</span> <span id="m-total" style="color:#d97706;">₺0.00</span>
+                <span>Kalan Ödenecek:</span> <span id="m-total" style="color:#d97706;">₺0.00</span>
             </div>
             
             <div style="display:flex; gap:8px; margin-bottom:8px;">
@@ -172,8 +172,8 @@
             </div>
             
             <div style="display:flex; gap:8px;">
-                <button class="btn btn-green" style="flex:1" onclick="checkout('Nakit')">Nakit Kapat</button>
-                <button class="btn btn-amber" style="flex:1" onclick="checkout('Kart')">Kart Kapat</button>
+                <button class="btn btn-green" style="flex:1" onclick="checkout('Nakit')">Kalanı Nakit Kapat</button>
+                <button class="btn btn-amber" style="flex:1" onclick="checkout('Kart')">Kalanı Kart Kapat</button>
             </div>
             <button class="btn btn-gray" style="width:100%; margin-top:10px;" onclick="closeModal('modal-table')">Kapat</button>
         </div>
@@ -335,7 +335,9 @@
                 const newGrid = document.getElementById('tables-grid');
                 db.tables.forEach(t => {
                     const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-                    const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+                    const paidPart = t.paidAmount || 0;
+                    const disc = t.discount || 0;
+                    const finalTotal = Math.max(0, rawTotal - paidPart - disc);
                     newGrid.innerHTML += `
                         <div class="card dolu" onclick="openTable(${t.id})">
                             <div style="display:flex; justify-content:space-between; font-weight:bold;">
@@ -466,7 +468,7 @@
             const name = document.getElementById('new-table-name').value.trim();
             if (name) {
                 const newId = Date.now();
-                db.tables.push({ id: newId, name: name, orders: [], discount: 0 });
+                db.tables.push({ id: newId, name: name, orders: [], discount: 0, paidAmount: 0 });
                 persist();
                 closeModal('modal-create-table');
                 openTable(newId);
@@ -508,11 +510,12 @@
             });
 
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const paidPart = t.paidAmount || 0;
             const disc = t.discount || 0;
-            const finalTotal = Math.max(0, rawTotal - disc);
+            const finalTotal = Math.max(0, rawTotal - paidPart - disc);
 
             let totalText = `₺${finalTotal.toFixed(2)}`;
-            if(disc > 0) {
+            if(disc > 0 || paidPart > 0) {
                 totalText = `<span style="text-decoration:line-through; font-size:12px; color:#94a3b8;">₺${rawTotal.toFixed(2)}</span> ₺${finalTotal.toFixed(2)}`;
             }
             document.getElementById('m-total').innerHTML = totalText;
@@ -541,17 +544,17 @@
             if (nn) { t.name = nn; persist(); openTable(activeTableId); }
         }
 
-        // DÜZELTİLEN İNDİRİM MANTIĞI (Sadece kalan bakiye üzerinden ek indirim düşer)
+        // İNDİRİM MANTIĞI (Toplam tutar üzerinden indirim havuzuna işlenir, kısmi ödenen de göz önünde bulundurulur)
         function adjustDiscount() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            const currentBalance = Math.max(0, rawTotal - (t.discount || 0));
+            const paidPart = t.paidAmount || 0;
+            const currentBalance = Math.max(0, rawTotal - paidPart - (t.discount || 0));
 
-            const disc = prompt(`Toplam Tutar: ₺${rawTotal.toFixed(2)}\nKalan Güncel Bakiye: ₺${currentBalance.toFixed(2)}\nEklenecek İndirim / İkram Tutarı (₺):`, "0");
+            const disc = prompt(`Toplam Hesap: ₺${rawTotal.toFixed(2)}\nDaha Önce Ödenen: ₺${paidPart.toFixed(2)}\nKalan Bakiye: ₺${currentBalance.toFixed(2)}\nEklenecek İndirim / İkram Tutarı (₺):`, "0");
             
             if (disc !== null && !isNaN(disc)) {
                 const addDisc = parseFloat(disc);
-                // Toplam indirim havuzuna eklenir, böylece kalan bakiyeden düşmüş olur
                 t.discount = (t.discount || 0) + addDisc;
                 persist(); 
                 openTable(activeTableId);
@@ -562,7 +565,8 @@
         function openPartialPaymentModal() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+            const paidPart = t.paidAmount || 0;
+            const finalTotal = Math.max(0, rawTotal - paidPart - (t.discount || 0));
 
             if(finalTotal <= 0) {
                 alert("Ödenecek tutar kalmadı.");
@@ -580,7 +584,8 @@
             const t = db.tables.find(x => x.id === activeTableId);
 
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+            const paidPart = t.paidAmount || 0;
+            const finalTotal = Math.max(0, rawTotal - paidPart - (t.discount || 0));
 
             if(isNaN(amt) || amt <= 0) {
                 alert("Lütfen geçerli bir tutar girin.");
@@ -595,7 +600,9 @@
 
             db.kasa.gelir += amt;
             db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (Kısmi Ödeme - ${pType})`, amount: amt});
-            t.discount = (t.discount || 0) + amt;
+            
+            // Kısmi ödenen tutar kaydedilir, böylece indirimle çakışmaz
+            t.paidAmount = (t.paidAmount || 0) + amt;
 
             persist();
             closeModal('modal-partial-pay');
@@ -606,10 +613,12 @@
         function checkout(type) {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+            const paidPart = t.paidAmount || 0;
+            const finalTotal = Math.max(0, rawTotal - paidPart - (t.discount || 0));
             
             if(rawTotal <= 0) { alert("Boş masa kapatılamaz."); return; }
 
+            // Satış istatistiklerine ürünler tam adet ve tam fiyatlarıyla işlenir
             t.orders.forEach(o => {
                 if(!db.salesStats[o.name]) {
                     db.salesStats[o.name] = { qty: 0, revenue: 0 };
