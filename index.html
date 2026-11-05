@@ -541,18 +541,17 @@
             if (nn) { t.name = nn; persist(); openTable(activeTableId); }
         }
 
-        // İNDİRİM MANTIĞI (KALAN GÜNCEL TUTAR ÜZERİNDEN HESAPLANIR)
+        // DÜZELTİLEN İNDİRİM MANTIĞI (Sadece kalan bakiye üzerinden ek indirim düşer)
         function adjustDiscount() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            
-            // Eğer daha önceden kısmi ödeme yapıldıysa, indirim kalan bakiye üzerinden uygulanır
             const currentBalance = Math.max(0, rawTotal - (t.discount || 0));
 
-            const disc = prompt(`Toplam Tutar: ₺${rawTotal.toFixed(2)}\nKalan Bakiye: ₺${currentBalance.toFixed(2)}\nUygulanacak İndirim/İkram Ek Tutarı (₺):`, "0");
+            const disc = prompt(`Toplam Tutar: ₺${rawTotal.toFixed(2)}\nKalan Güncel Bakiye: ₺${currentBalance.toFixed(2)}\nEklenecek İndirim / İkram Tutarı (₺):`, "0");
             
             if (disc !== null && !isNaN(disc)) {
                 const addDisc = parseFloat(disc);
+                // Toplam indirim havuzuna eklenir, böylece kalan bakiyeden düşmüş olur
                 t.discount = (t.discount || 0) + addDisc;
                 persist(); 
                 openTable(activeTableId);
