@@ -72,7 +72,7 @@
         <div id="sec-veresiye" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Veresiye Defteri</h3>
-                <button class="btn btn-brown" onclick="openModal('modal-ver')">+ Borç Ekle</button>
+                <button class="btn btn-brown" onclick="openVeresiyeModal()">+ Borç Ekle</button>
             </div>
             <div class="card" style="height:auto; margin-bottom:12px; background:#fffbeb;">
                 <small style="color:#b45309; font-weight:bold;">TOPLAM ALACAK</small>
@@ -107,9 +107,7 @@
         <div id="sec-aylik" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Aylık Finansal & Satış Raporu</h3>
-                <select id="month-selector" style="width:160px; margin:0;" onchange="renderMonthlyReport()">
-                    <!-- Javascript ile doldurulacak -->
-                </select>
+                <select id="month-selector" style="width:160px; margin:0;" onchange="renderMonthlyReport()"></select>
             </div>
             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
                 <div class="card" style="height:auto;"><small style="color:#10b981; font-weight:bold;">AYLIK GELİR</small><h3 id="m-gelir" style="color:#10b981;">₺0</h3></div>
@@ -167,14 +165,36 @@
             <div style="border-top:1px solid #cbd5e1; padding-top:10px; display:flex; justify-content:space-between; font-weight:bold; font-size:16px; margin-bottom:12px;">
                 <span>Toplam:</span> <span id="m-total" style="color:#d97706;">₺0.00</span>
             </div>
+            
             <div style="display:flex; gap:8px; margin-bottom:8px;">
-                <button class="btn btn-gray" style="flex:1; padding:10px;" onclick="adjustTotal()">Tutarı Düzenle (İndirim / İkram)</button>
+                <button class="btn btn-gray" style="flex:1; padding:8px; font-size:12px;" onclick="adjustDiscount()">İndirim / İkram Uygula</button>
+                <button class="btn btn-amber" style="flex:1; padding:8px; font-size:12px;" onclick="openPartialPaymentModal()">Kısmi Ödeme Al</button>
             </div>
+            
             <div style="display:flex; gap:8px;">
-                <button class="btn btn-green" style="flex:1" onclick="checkout('Nakit')">Nakit Öde & Kapat</button>
-                <button class="btn btn-amber" style="flex:1" onclick="checkout('Kart')">Kart Öde & Kapat</button>
+                <button class="btn btn-green" style="flex:1" onclick="checkout('Nakit')">Nakit Kapat</button>
+                <button class="btn btn-amber" style="flex:1" onclick="checkout('Kart')">Kart Kapat</button>
             </div>
             <button class="btn btn-gray" style="width:100%; margin-top:10px;" onclick="closeModal('modal-table')">Kapat</button>
+        </div>
+    </div>
+
+    <!-- KISMI MASA ÖDEME MODAL -->
+    <div class="modal" id="modal-partial-pay">
+        <div class="modal-box">
+            <h3>Kısmi Masa Ödemesi</h3>
+            <p id="partial-pay-info" style="font-size:13px; color:#64748b; margin-bottom:10px;"></p>
+            <label>Alınacak Kısmi Tutar (₺)</label>
+            <input type="number" id="partial-amount" step="0.5">
+            <label>Ödeme Türü</label>
+            <select id="partial-type">
+                <option value="Nakit">Nakit</option>
+                <option value="Kart">Kart</option>
+            </select>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-partial-pay')">İptal</button>
+                <button class="btn btn-green" style="flex:1" onclick="confirmPartialPayment()">Ödemeyi Al</button>
+            </div>
         </div>
     </div>
 
@@ -209,13 +229,32 @@
     <!-- PARÇALI VERESİYE ÖDEME MODAL -->
     <div class="modal" id="modal-veresiye-pay">
         <div class="modal-box">
-            <h3>Veresiye Tahsilatı</h3>
+            <h3>Veresiye Tahsilatı (Kısmi / Tam)</h3>
             <p id="pay-info" style="font-size:13px; color:#64748b; margin-bottom:10px;"></p>
-            <label>Alınan Ödeme Tutarı (₺)</label>
+            <label>Tahsil Edilen Ödeme Tutarı (₺)</label>
             <input type="number" id="pay-amount" step="0.5">
+            <label>Ödeme Yöntemi</label>
+            <select id="ver-pay-type">
+                <option value="Nakit">Nakit</option>
+                <option value="Kart">Kart</option>
+            </select>
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-veresiye-pay')">İptal</button>
-                <button class="btn btn-green" style="flex:1" onclick="confirmVeresiyePayment()">Tahsilatı Onayla</button>
+                <button class="btn btn-green" style="flex:1" onclick="confirmVeresiyePayment()">Tahsilatı İşle</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VERESİYE EKLE / DÜZENLE MODAL -->
+    <div class="modal" id="modal-ver">
+        <div class="modal-box">
+            <h3 id="veresiye-modal-title">Yeni Borç Kaydı</h3>
+            <label>Müşteri Adı</label><input type="text" id="vr-name">
+            <label>Borç Tutarı (₺)</label><input type="number" id="vr-amount" step="0.5">
+            <label>Açıklama</label><input type="text" id="vr-note">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-ver')">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="saveVeresiyeRecord()">Kaydet</button>
             </div>
         </div>
     </div>
@@ -233,20 +272,6 @@
         </div>
     </div>
 
-    <!-- VERESİYE MODAL -->
-    <div class="modal" id="modal-ver">
-        <div class="modal-box">
-            <h3>Yeni Borç Kaydı</h3>
-            <label>Müşteri Adı</label><input type="text" id="vr-name">
-            <label>Borç Tutarı (₺)</label><input type="number" id="vr-amount" step="0.5">
-            <label>Açıklama</label><input type="text" id="vr-note">
-            <div style="display:flex; gap:8px;">
-                <button class="btn btn-gray" style="flex:1" onclick="closeModal('modal-ver')">İptal</button>
-                <button class="btn btn-brown" style="flex:1" onclick="saveVer()">Borcu Kaydet</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let db = {
             tables: [],
@@ -259,9 +284,9 @@
             ],
             veresiye: [],
             giderler: [], 
-            salesStats: {}, // { "Türk Kahvesi": { qty: 12, revenue: 480 } }
+            salesStats: {}, 
             kasa: { gelir: 0, gider: 0, trans: [] },
-            archive: [] // [{ date, net, gelir, gider, salesStats }]
+            archive: [] 
         };
 
         let activeTableId = null;
@@ -310,14 +335,15 @@
                 container.innerHTML = `<div class="grid" id="tables-grid"></div>`;
                 const newGrid = document.getElementById('tables-grid');
                 db.tables.forEach(t => {
-                    const total = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+                    const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+                    const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
                     newGrid.innerHTML += `
                         <div class="card dolu" onclick="openTable(${t.id})">
                             <div style="display:flex; justify-content:space-between; font-weight:bold;">
                                 <span style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.name}</span>
                                 <span style="width:10px; height:10px; border-radius:50%; background:#ef4444; flex-shrink:0;"></span>
                             </div>
-                            <div style="font-size:18px; font-weight:bold; color:#e11d48;">₺${total.toFixed(2)}</div>
+                            <div style="font-size:18px; font-weight:bold; color:#e11d48;">₺${finalTotal.toFixed(2)}</div>
                         </div>
                     `;
                 });
@@ -349,7 +375,10 @@
                         <div><b>${v.name}</b><br><small>${v.note || ''} (${v.date})</small></div>
                         <div style="text-align:right;">
                             <b style="color:#ef4444;">₺${v.amount.toFixed(2)}</b><br>
-                            <button class="btn btn-green" style="padding:4px 8px; font-size:11px; margin-top:4px;" onclick="openVeresiyePayModal(${idx})">Ödeme Al</button>
+                            <div style="display:flex; gap:4px; margin-top:4px;">
+                                <button class="btn btn-amber" style="padding:2px 6px; font-size:10px;" onclick="openEditVeresiyeModal(${idx})">Düzenle</button>
+                                <button class="btn btn-green" style="padding:2px 6px; font-size:10px;" onclick="openVeresiyePayModal(${idx})">Ödeme Al</button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -438,7 +467,7 @@
             const name = document.getElementById('new-table-name').value.trim();
             if (name) {
                 const newId = Date.now();
-                db.tables.push({ id: newId, name: name, orders: [] });
+                db.tables.push({ id: newId, name: name, orders: [], discount: 0 });
                 persist();
                 closeModal('modal-create-table');
                 openTable(newId);
@@ -479,8 +508,15 @@
                 `;
             });
 
-            const tot = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            document.getElementById('m-total').innerText = `₺${tot.toFixed(2)}`;
+            const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const disc = t.discount || 0;
+            const finalTotal = Math.max(0, rawTotal - disc);
+
+            let totalText = `₺${finalTotal.toFixed(2)}`;
+            if(disc > 0) {
+                totalText = `<span style="text-decoration:line-through; font-size:12px; color:#94a3b8;">₺${rawTotal.toFixed(2)}</span> ₺${finalTotal.toFixed(2)}`;
+            }
+            document.getElementById('m-total').innerHTML = totalText;
             openModal('modal-table');
         }
 
@@ -506,20 +542,68 @@
             if (nn) { t.name = nn; persist(); openTable(activeTableId); }
         }
 
-        function adjustTotal() {
+        function adjustDiscount() {
             const t = db.tables.find(x => x.id === activeTableId);
-            const nt = prompt("Yeni toplam tutar (₺):");
-            if (nt && !isNaN(nt)) {
-                t.orders = [{name: 'Özel Düzenlenmiş Tutar', price: parseFloat(nt), qty: 1}];
-                persist(); openTable(activeTableId);
+            const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const disc = prompt(`Mevcut Tutar: ₺${rawTotal.toFixed(2)}\nUygulanacak İndirim/İkram Tutarı (₺):`, t.discount || 0);
+            if (disc !== null && !isNaN(disc)) {
+                t.discount = parseFloat(disc);
+                persist(); 
+                openTable(activeTableId);
             }
         }
 
-        // HESAP KAPATMA VE İSTATİSTİKLERE İŞLEME
+        // KISMI MASA ÖDEMESİ
+        function openPartialPaymentModal() {
+            const t = db.tables.find(x => x.id === activeTableId);
+            const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+
+            if(finalTotal <= 0) {
+                alert("Ödenecek tutar kalmadı.");
+                return;
+            }
+
+            document.getElementById('partial-pay-info').innerText = `${t.name} masasından alınacak kalan bakiye: ₺${finalTotal.toFixed(2)}`;
+            document.getElementById('partial-amount').value = '';
+            openModal('modal-partial-pay');
+        }
+
+        function confirmPartialPayment() {
+            const amt = parseFloat(document.getElementById('partial-amount').value);
+            const pType = document.getElementById('partial-type').value;
+            const t = db.tables.find(x => x.id === activeTableId);
+
+            const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+
+            if(isNaN(amt) || amt <= 0) {
+                alert("Lütfen geçerli bir tutar girin.");
+                return;
+            }
+
+            if(amt >= finalTotal) {
+                checkout(pType);
+                closeModal('modal-partial-pay');
+                return;
+            }
+
+            db.kasa.gelir += amt;
+            db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (Kısmi Ödeme - ${pType})`, amount: amt});
+            t.discount = (t.discount || 0) + amt;
+
+            persist();
+            closeModal('modal-partial-pay');
+            openTable(activeTableId);
+            alert(`₺${amt.toFixed(2)} kısmi ödeme kasaya işlendi.`);
+        }
+
         function checkout(type) {
             const t = db.tables.find(x => x.id === activeTableId);
-            const tot = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            if(tot <= 0) { alert("Boş masa kapatılamaz."); return; }
+            const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
+            const finalTotal = Math.max(0, rawTotal - (t.discount || 0));
+            
+            if(rawTotal <= 0) { alert("Boş masa kapatılamaz."); return; }
 
             t.orders.forEach(o => {
                 if(!db.salesStats[o.name]) {
@@ -529,15 +613,18 @@
                 db.salesStats[o.name].revenue += (o.price * o.qty);
             });
             
-            db.kasa.gelir += tot;
-            db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (${type})`, amount: tot});
+            if(finalTotal > 0) {
+                db.kasa.gelir += finalTotal;
+                db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (${type})`, amount: finalTotal});
+            }
+
             db.tables = db.tables.filter(x => x.id !== activeTableId);
             
             persist(); 
             closeModal('modal-table');
         }
 
-        // GİDER YÖNETİMİ (SİLİNCE KASADAN DÜŞME ÖZELLİĞİ)
+        // GİDER YÖNETİMİ
         function saveGider() {
             const desc = document.getElementById('gider-desc').value.trim();
             const amount = parseFloat(document.getElementById('gider-amount').value);
@@ -557,13 +644,51 @@
             if(confirm("Bu gider kaydını silmek istiyor musunuz?")) {
                 const removedGider = db.giderler[idx];
                 db.giderler.splice(idx, 1);
-                // İşlem geçmişinden de bu gideri kaldır
                 db.kasa.trans = db.kasa.trans.filter(tr => !(tr.type === 'gider' && tr.desc === `Gider: ${removedGider.desc}` && tr.amount === removedGider.amount));
                 persist();
             }
         }
 
-        // PARÇALI VERESİYE YÖNETİMİ
+        // VERESİYE YÖNETİMİ (KISMİ VE TAM TAHSİLAT)
+        function openVeresiyeModal() {
+            activeVeresiyeIndex = null;
+            document.getElementById('veresiye-modal-title').innerText = "Yeni Borç Kaydı";
+            document.getElementById('vr-name').value = '';
+            document.getElementById('vr-amount').value = '';
+            document.getElementById('vr-note').value = '';
+            openModal('modal-ver');
+        }
+
+        function openEditVeresiyeModal(idx) {
+            activeVeresiyeIndex = idx;
+            const v = db.veresiye[idx];
+            document.getElementById('veresiye-modal-title').innerText = "Veresiye Kaydını Düzenle";
+            document.getElementById('vr-name').value = v.name;
+            document.getElementById('vr-amount').value = v.amount;
+            document.getElementById('vr-note').value = v.note || '';
+            openModal('modal-ver');
+        }
+
+        function saveVeresiyeRecord() {
+            const name = document.getElementById('vr-name').value.trim();
+            const amount = parseFloat(document.getElementById('vr-amount').value);
+            const note = document.getElementById('vr-note').value.trim();
+
+            if (name && !isNaN(amount)) {
+                if(activeVeresiyeIndex !== null) {
+                    db.veresiye[activeVeresiyeIndex].name = name;
+                    db.veresiye[activeVeresiyeIndex].amount = amount;
+                    db.veresiye[activeVeresiyeIndex].note = note;
+                } else {
+                    db.veresiye.push({name, amount, note, date: new Date().toLocaleDateString()});
+                }
+                persist(); 
+                closeModal('modal-ver');
+            } else {
+                alert("Lütfen müşteri adı ve borç tutarını girin.");
+            }
+        }
+
         function openVeresiyePayModal(idx) {
             activeVeresiyeIndex = idx;
             const v = db.veresiye[idx];
@@ -574,6 +699,7 @@
 
         function confirmVeresiyePayment() {
             const paid = parseFloat(document.getElementById('pay-amount').value);
+            const payType = document.getElementById('ver-pay-type').value;
             const v = db.veresiye[activeVeresiyeIndex];
 
             if(isNaN(paid) || paid <= 0) {
@@ -582,13 +708,17 @@
             }
 
             if(paid >= v.amount) {
+                // Borcun tamamı ödendiyse
                 db.kasa.gelir += v.amount;
-                db.kasa.trans.unshift({type: 'gelir', desc: `Veresiye Tahsilat (${v.name})`, amount: v.amount});
+                db.kasa.trans.unshift({type: 'gelir', desc: `Veresiye Tahsilat - ${v.name} (${payType})`, amount: v.amount});
                 db.veresiye.splice(activeVeresiyeIndex, 1);
+                alert(`${v.name} borcunun tamamını kapattı.`);
             } else {
+                // Kısmi ödeme yapıldıysa
                 v.amount -= paid;
                 db.kasa.gelir += paid;
-                db.kasa.trans.unshift({type: 'gelir', desc: `Parçalı Veresiye Tahsilatı (${v.name})`, amount: paid});
+                db.kasa.trans.unshift({type: 'gelir', desc: `Parçalı Veresiye Tahsilatı - ${v.name} (${payType})`, amount: paid});
+                alert(`₺${paid.toFixed(2)} tahsil edildi. Kalan veresiye borcu: ₺${v.amount.toFixed(2)}`);
             }
 
             persist();
@@ -637,17 +767,7 @@
             }
         }
 
-        function saveVer() {
-            const name = document.getElementById('vr-name').value.trim();
-            const amount = parseFloat(document.getElementById('vr-amount').value);
-            const note = document.getElementById('vr-note').value.trim();
-            if (name && !isNaN(amount)) {
-                db.veresiye.push({name, amount, note, date: new Date().toLocaleDateString()});
-                persist(); closeModal('modal-ver');
-            }
-        }
-
-        // GÜNÜ KAPAT (ÜRÜNLERİ DE ARŞİVE AKTARIR)
+        // GÜNÜ KAPAT
         function archiveKasa() {
             let totalGider = db.giderler.reduce((s, g) => s + g.amount, 0);
             const net = db.kasa.gelir - totalGider;
@@ -673,18 +793,16 @@
             }
         }
 
-        // AYLIK RAPOR MANTIĞI
+        // AYLIK RAPOR
         function initMonthSelector() {
             const sel = document.getElementById('month-selector');
             const currentVal = sel.value;
-            
-            // Mevcut arşivden ve bugünden ayları bul
             const monthsSet = new Set();
             const now = new Date();
             monthsSet.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}`);
 
             db.archive.forEach(ar => {
-                const parts = ar.date.split('.'); // GG.AA.YYYY
+                const parts = ar.date.split('.'); 
                 if(parts.length === 3) {
                     monthsSet.add(`${parts[2]}-${parts[1]}`);
                 }
@@ -714,7 +832,6 @@
             let totalGider = 0;
             let monthlySales = {};
 
-            // Arşivdeki günleri topla
             db.archive.forEach(ar => {
                 const parts = ar.date.split('.');
                 if(parts.length === 3 && parts[2] === targetY && parts[1] === targetM) {
@@ -731,7 +848,6 @@
                 }
             });
 
-            // Eğer seçilen ay içindeysek ve henüz kapanmamış bugünkü veriler de varsa onları da ekle
             const now = new Date();
             if(now.getFullYear().toString() === targetY && (now.getMonth()+1).toString().padStart(2,'0') === targetM) {
                 totalGelir += db.kasa.gelir;
