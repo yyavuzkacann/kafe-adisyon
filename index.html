@@ -323,7 +323,6 @@
         }
 
         function renderAll() {
-            // Masalar
             const container = document.getElementById('tables-container');
             if (db.tables.length === 0) {
                 container.innerHTML = `
@@ -542,12 +541,19 @@
             if (nn) { t.name = nn; persist(); openTable(activeTableId); }
         }
 
+        // İNDİRİM MANTIĞI (KALAN GÜNCEL TUTAR ÜZERİNDEN HESAPLANIR)
         function adjustDiscount() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
-            const disc = prompt(`Mevcut Tutar: ₺${rawTotal.toFixed(2)}\nUygulanacak İndirim/İkram Tutarı (₺):`, t.discount || 0);
+            
+            // Eğer daha önceden kısmi ödeme yapıldıysa, indirim kalan bakiye üzerinden uygulanır
+            const currentBalance = Math.max(0, rawTotal - (t.discount || 0));
+
+            const disc = prompt(`Toplam Tutar: ₺${rawTotal.toFixed(2)}\nKalan Bakiye: ₺${currentBalance.toFixed(2)}\nUygulanacak İndirim/İkram Ek Tutarı (₺):`, "0");
+            
             if (disc !== null && !isNaN(disc)) {
-                t.discount = parseFloat(disc);
+                const addDisc = parseFloat(disc);
+                t.discount = (t.discount || 0) + addDisc;
                 persist(); 
                 openTable(activeTableId);
             }
@@ -649,7 +655,7 @@
             }
         }
 
-        // VERESİYE YÖNETİMİ (KISMİ VE TAM TAHSİLAT)
+        // VERESİYE YÖNETİMİ
         function openVeresiyeModal() {
             activeVeresiyeIndex = null;
             document.getElementById('veresiye-modal-title').innerText = "Yeni Borç Kaydı";
@@ -708,13 +714,11 @@
             }
 
             if(paid >= v.amount) {
-                // Borcun tamamı ödendiyse
                 db.kasa.gelir += v.amount;
                 db.kasa.trans.unshift({type: 'gelir', desc: `Veresiye Tahsilat - ${v.name} (${payType})`, amount: v.amount});
                 db.veresiye.splice(activeVeresiyeIndex, 1);
                 alert(`${v.name} borcunun tamamını kapattı.`);
             } else {
-                // Kısmi ödeme yapıldıysa
                 v.amount -= paid;
                 db.kasa.gelir += paid;
                 db.kasa.trans.unshift({type: 'gelir', desc: `Parçalı Veresiye Tahsilatı - ${v.name} (${payType})`, amount: paid});
