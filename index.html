@@ -27,6 +27,7 @@
         input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin: 6px 0 14px 0; font-size: 14px; }
         .row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; }
         .empty-state { text-align: center; padding: 40px 20px; background: white; border-radius: 12px; border: 1px dashed #cbd5e1; color: #94a3b8; }
+        .pin-error { color: #ef4444; font-size: 12px; font-weight: bold; margin-bottom: 10px; min-height: 16px; }
     </style>
 </head>
 <body>
@@ -43,9 +44,9 @@
             <button class="tab-btn" onclick="switchTab('menu', this)">📋 Menü</button>
             <button class="tab-btn" onclick="switchTab('veresiye', this)">📖 Veresiye</button>
             <button class="tab-btn" onclick="switchTab('giderler', this)">📉 Giderler</button>
-            <button class="tab-btn" onclick="switchTab('raporlar', this)">📊 Satış</button>
+            <button class="tab-btn" onclick="switchTab('raporlar', this)">🔒📊 Satış</button>
             <button class="tab-btn" onclick="switchTab('aylik', this)">📅 Aylık Rapor</button>
-            <button class="tab-btn" onclick="switchTab('kasa', this)">💰 Kasa</button>
+            <button class="tab-btn" onclick="switchTab('kasa', this)">🔒💰 Kasa</button>
         </div>
 
         <!-- 1. MASALAR -->
@@ -94,11 +95,14 @@
             <div id="gider-list"></div>
         </div>
 
-        <!-- 5. ÜRÜN SATIŞ RAPORLARI -->
+        <!-- 5. ÜRÜN SATIŞ RAPORLARI (ŞİFRELİ) -->
         <div id="sec-raporlar" style="display:none;">
-            <div style="margin-bottom:12px;">
-                <h3>Bugünkü Ürün Satış & Tüketim Raporu</h3>
-                <p style="font-size:12px; color:#64748b; margin-top:2px;">Bugün satılan ürünlerin adet ve ciro dökümü.</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div>
+                    <h3>Bugünkü Ürün Satış & Tüketim Raporu</h3>
+                    <p style="font-size:12px; color:#64748b; margin-top:2px;">Bugün satılan ürünlerin adet ve ciro dökümü.</p>
+                </div>
+                <button class="btn btn-gray" style="padding:6px 10px; font-size:11px;" onclick="lockProtectedTabs()">Kilitle</button>
             </div>
             <div id="product-sales-list"></div>
         </div>
@@ -118,13 +122,20 @@
                 <h4 style="margin-bottom:8px;">Seçilen Ayın Ürün Satışları</h4>
                 <div id="monthly-product-sales"></div>
             </div>
+            <div class="card" style="height:auto; margin-bottom:12px;">
+                <h4 style="margin-bottom:8px;">Seçilen Ayın Gider Kalemleri</h4>
+                <div id="monthly-expense-list"></div>
+            </div>
         </div>
 
-        <!-- 7. KASA -->
+        <!-- 7. KASA (ŞİFRELİ) -->
         <div id="sec-kasa" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Günlük Kasa</h3>
-                <button class="btn btn-red" onclick="archiveKasa()">Günü Kapat</button>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn btn-gray" style="padding:8px 10px; font-size:12px;" onclick="lockProtectedTabs()">Kilitle</button>
+                    <button class="btn btn-red" onclick="archiveKasa()">Günü Kapat</button>
+                </div>
             </div>
             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
                 <div class="card" style="height:auto;"><small style="color:#10b981; font-weight:bold;">GELİR</small><h3 id="k" style="color:#10b981;">₺0</h3></div>
@@ -143,6 +154,20 @@
                     <button class="btn btn-gray" style="padding:4px 8px; font-size:11px;" onclick="clearArchive()">Arşivi Temizle</button>
                 </div>
                 <div id="archive-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ŞİFRE GİRİŞ MODAL -->
+    <div class="modal" id="modal-pin">
+        <div class="modal-box" style="max-width:340px;">
+            <h3 style="margin-bottom:6px;">Şifre Gerekli</h3>
+            <p id="pin-target-info" style="font-size:12px; color:#64748b; margin-bottom:10px;">Bu ekrana erişmek için 4 haneli şifreyi girin.</p>
+            <input type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter') verifyPin()">
+            <div class="pin-error" id="pin-error"></div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-gray" style="flex:1" onclick="cancelPin()">İptal</button>
+                <button class="btn btn-brown" style="flex:1" onclick="verifyPin()">Giriş</button>
             </div>
         </div>
     </div>
@@ -273,6 +298,8 @@
     </div>
 
     <script>
+        const ACCESS_PIN = '0909';
+
         let db = {
             tables: [],
             menu: [
@@ -286,12 +313,15 @@
             giderler: [], 
             salesStats: {}, 
             kasa: { gelir: 0, gider: 0, trans: [] },
-            archive: [] 
+            archive: [] // [{ date, net, gelir, gider, salesStats, expenses }]
         };
 
         let activeTableId = null;
         let editingProductId = null;
         let activeVeresiyeIndex = null;
+        let isProtectedUnlocked = false;
+        let pendingProtectedTab = null;
+        let pendingProtectedBtn = null;
 
         function init() {
             const saved = localStorage.getItem('kahvehane_v2');
@@ -310,15 +340,62 @@
             renderAll();
         }
 
-        function switchTab(tab, btn) {
+        function activateTab(tab, btn) {
             ['masalar', 'menu', 'veresiye', 'giderler', 'raporlar', 'aylik', 'kasa'].forEach(t => {
                 document.getElementById(`sec-${t}`).style.display = t === tab ? 'block' : 'none';
             });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            if(btn) btn.classList.add('active');
             if(tab === 'aylik') {
                 initMonthSelector();
                 renderMonthlyReport();
+            }
+        }
+
+        function switchTab(tab, btn) {
+            const isProtected = (tab === 'raporlar' || tab === 'kasa');
+            if(isProtected && !isProtectedUnlocked) {
+                pendingProtectedTab = tab;
+                pendingProtectedBtn = btn;
+                document.getElementById('pin-input').value = '';
+                document.getElementById('pin-error').innerText = '';
+                document.getElementById('pin-target-info').innerText = `${tab === 'kasa' ? 'Kasa' : 'Satış'} ekranını açmak için şifreyi girin.`;
+                openModal('modal-pin');
+                setTimeout(() => document.getElementById('pin-input').focus(), 50);
+                return;
+            }
+            activateTab(tab, btn);
+        }
+
+        function verifyPin() {
+            const val = document.getElementById('pin-input').value.trim();
+            if(val === ACCESS_PIN) {
+                isProtectedUnlocked = true;
+                closeModal('modal-pin');
+                const targetTab = pendingProtectedTab;
+                const targetBtn = pendingProtectedBtn;
+                pendingProtectedTab = null;
+                pendingProtectedBtn = null;
+                if(targetTab) activateTab(targetTab, targetBtn);
+            } else {
+                document.getElementById('pin-error').innerText = 'Hatalı şifre. Tekrar deneyin.';
+                document.getElementById('pin-input').value = '';
+                document.getElementById('pin-input').focus();
+            }
+        }
+
+        function cancelPin() {
+            pendingProtectedTab = null;
+            pendingProtectedBtn = null;
+            closeModal('modal-pin');
+        }
+
+        function lockProtectedTabs() {
+            isProtectedUnlocked = false;
+            const currentSec = ['raporlar', 'kasa'].find(t => document.getElementById(`sec-${t}`).style.display === 'block');
+            if(currentSec) {
+                const firstBtn = document.querySelector('.tab-btn');
+                activateTab('masalar', firstBtn);
             }
         }
 
@@ -544,7 +621,6 @@
             if (nn) { t.name = nn; persist(); openTable(activeTableId); }
         }
 
-        // İNDİRİM MANTIĞI (Toplam tutar üzerinden indirim havuzuna işlenir, kısmi ödenen de göz önünde bulundurulur)
         function adjustDiscount() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
@@ -561,7 +637,6 @@
             }
         }
 
-        // KISMI MASA ÖDEMESİ
         function openPartialPaymentModal() {
             const t = db.tables.find(x => x.id === activeTableId);
             const rawTotal = t.orders.reduce((sum, o) => sum + (o.price * o.qty), 0);
@@ -600,8 +675,6 @@
 
             db.kasa.gelir += amt;
             db.kasa.trans.unshift({type: 'gelir', desc: `${t.name} (Kısmi Ödeme - ${pType})`, amount: amt});
-            
-            // Kısmi ödenen tutar kaydedilir, böylece indirimle çakışmaz
             t.paidAmount = (t.paidAmount || 0) + amt;
 
             persist();
@@ -618,7 +691,6 @@
             
             if(rawTotal <= 0) { alert("Boş masa kapatılamaz."); return; }
 
-            // Satış istatistiklerine ürünler tam adet ve tam fiyatlarıyla işlenir
             t.orders.forEach(o => {
                 if(!db.salesStats[o.name]) {
                     db.salesStats[o.name] = { qty: 0, revenue: 0 };
@@ -779,17 +851,18 @@
             }
         }
 
-        // GÜNÜ KAPAT
+        // GÜNÜ KAPAT (GİDERLER, SATIŞLAR VE KASA ARŞİVLENİR)
         function archiveKasa() {
             let totalGider = db.giderler.reduce((s, g) => s + g.amount, 0);
             const net = db.kasa.gelir - totalGider;
-            if (confirm(`Günü kapatıp ₺${net.toFixed(2)} net kârı ve bugünkü satışları arşivlemek istiyor musunuz?`)) {
+            if (confirm(`Günü kapatıp ₺${net.toFixed(2)} net kârı, giderleri ve satışları arşivlemek istiyor musunuz?`)) {
                 db.archive.unshift({
                     date: new Date().toLocaleDateString(), 
                     net, 
                     gelir: db.kasa.gelir, 
                     gider: totalGider, 
-                    salesStats: { ...db.salesStats }
+                    salesStats: { ...db.salesStats },
+                    expenses: [...db.giderler]
                 });
                 db.kasa = {gelir: 0, gider: 0, trans: []};
                 db.giderler = [];
@@ -843,6 +916,7 @@
             let totalGelir = 0;
             let totalGider = 0;
             let monthlySales = {};
+            let monthlyExpenses = [];
 
             db.archive.forEach(ar => {
                 const parts = ar.date.split('.');
@@ -857,6 +931,12 @@
                             monthlySales[pName].revenue += ar.salesStats[pName].revenue;
                         }
                     }
+
+                    if(Array.isArray(ar.expenses)) {
+                        ar.expenses.forEach(exp => {
+                            monthlyExpenses.push({ ...exp, archiveDate: ar.date });
+                        });
+                    }
                 }
             });
 
@@ -870,6 +950,10 @@
                     monthlySales[pName].qty += db.salesStats[pName].qty;
                     monthlySales[pName].revenue += db.salesStats[pName].revenue;
                 }
+
+                db.giderler.forEach(exp => {
+                    monthlyExpenses.push({ ...exp, archiveDate: 'Bugün (Açık)' });
+                });
             }
 
             let monthlyNet = totalGelir - totalGider;
@@ -890,6 +974,21 @@
                         <div class="row">
                             <div><b>${pName}</b><br><small style="color:#64748b;">Toplam Adet: <b>${item.qty}</b></small></div>
                             <div style="text-align:right; font-weight:bold; color:#d97706;">₺${item.revenue.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            const mExpDiv = document.getElementById('monthly-expense-list');
+            mExpDiv.innerHTML = '';
+            if(monthlyExpenses.length === 0) {
+                mExpDiv.innerHTML = `<small style="color:#94a3b8;">Bu aya ait gider kaydı bulunmuyor.</small>`;
+            } else {
+                monthlyExpenses.forEach(exp => {
+                    mExpDiv.innerHTML += `
+                        <div class="row">
+                            <div><b>${exp.desc}</b><br><small style="color:#64748b;">${exp.date || exp.archiveDate}</small></div>
+                            <div style="text-align:right; font-weight:bold; color:#ef4444;">-₺${exp.amount.toFixed(2)}</div>
                         </div>
                     `;
                 });
