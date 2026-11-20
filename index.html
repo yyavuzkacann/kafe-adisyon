@@ -44,8 +44,8 @@
             <button class="tab-btn" onclick="switchTab('menu', this)">📋 Menü</button>
             <button class="tab-btn" onclick="switchTab('veresiye', this)">📖 Veresiye</button>
             <button class="tab-btn" onclick="switchTab('giderler', this)">📉 Giderler</button>
-            <button class="tab-btn" onclick="switchTab('raporlar', this)">🔒📊 Satış</button>
-            <button class="tab-btn" onclick="switchTab('aylik', this)">📅 Aylık Rapor</button>
+            <button class="tab-btn" onclick="switchTab('raporlar', this)">📊 Satış</button>
+            <button class="tab-btn" onclick="switchTab('aylik', this)">🔒📅 Aylık Rapor</button>
             <button class="tab-btn" onclick="switchTab('kasa', this)">🔒💰 Kasa</button>
         </div>
 
@@ -95,19 +95,16 @@
             <div id="gider-list"></div>
         </div>
 
-        <!-- 5. ÜRÜN SATIŞ RAPORLARI (ŞİFRELİ) -->
+        <!-- 5. ÜRÜN SATIŞ RAPORLARI -->
         <div id="sec-raporlar" style="display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <div>
-                    <h3>Bugünkü Ürün Satış & Tüketim Raporu</h3>
-                    <p style="font-size:12px; color:#64748b; margin-top:2px;">Bugün satılan ürünlerin adet ve ciro dökümü.</p>
-                </div>
-                <button class="btn btn-gray" style="padding:6px 10px; font-size:11px;" onclick="lockProtectedTabs()">Kilitle</button>
+            <div style="margin-bottom:12px;">
+                <h3>Bugünkü Ürün Satış & Tüketim Raporu</h3>
+                <p style="font-size:12px; color:#64748b; margin-top:2px;">Bugün satılan ürünlerin adet ve ciro dökümü.</p>
             </div>
             <div id="product-sales-list"></div>
         </div>
 
-        <!-- 6. AYLIK RAPOR -->
+        <!-- 6. AYLIK RAPOR (ŞİFRELİ) -->
         <div id="sec-aylik" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Aylık Finansal & Satış Raporu</h3>
@@ -132,10 +129,7 @@
         <div id="sec-kasa" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h3>Günlük Kasa</h3>
-                <div style="display:flex; gap:6px;">
-                    <button class="btn btn-gray" style="padding:8px 10px; font-size:12px;" onclick="lockProtectedTabs()">Kilitle</button>
-                    <button class="btn btn-red" onclick="archiveKasa()">Günü Kapat</button>
-                </div>
+                <button class="btn btn-red" onclick="archiveKasa()">Günü Kapat</button>
             </div>
             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;">
                 <div class="card" style="height:auto;"><small style="color:#10b981; font-weight:bold;">GELİR</small><h3 id="k" style="color:#10b981;">₺0</h3></div>
@@ -313,13 +307,13 @@
             giderler: [], 
             salesStats: {}, 
             kasa: { gelir: 0, gider: 0, trans: [] },
-            archive: [] // [{ date, net, gelir, gider, salesStats, expenses }]
+            archive: []
         };
 
         let activeTableId = null;
         let editingProductId = null;
         let activeVeresiyeIndex = null;
-        let isProtectedUnlocked = false;
+        let unlockedTab = null;
         let pendingProtectedTab = null;
         let pendingProtectedBtn = null;
 
@@ -353,13 +347,16 @@
         }
 
         function switchTab(tab, btn) {
-            const isProtected = (tab === 'raporlar' || tab === 'kasa');
-            if(isProtected && !isProtectedUnlocked) {
+            if(unlockedTab && unlockedTab !== tab) {
+                unlockedTab = null;
+            }
+            const isProtected = (tab === 'aylik' || tab === 'kasa');
+            if(isProtected && unlockedTab !== tab) {
                 pendingProtectedTab = tab;
                 pendingProtectedBtn = btn;
                 document.getElementById('pin-input').value = '';
                 document.getElementById('pin-error').innerText = '';
-                document.getElementById('pin-target-info').innerText = `${tab === 'kasa' ? 'Kasa' : 'Satış'} ekranını açmak için şifreyi girin.`;
+                document.getElementById('pin-target-info').innerText = `${tab === 'kasa' ? 'Kasa' : 'Aylık Rapor'} ekranını açmak için şifreyi girin.`;
                 openModal('modal-pin');
                 setTimeout(() => document.getElementById('pin-input').focus(), 50);
                 return;
@@ -370,10 +367,10 @@
         function verifyPin() {
             const val = document.getElementById('pin-input').value.trim();
             if(val === ACCESS_PIN) {
-                isProtectedUnlocked = true;
-                closeModal('modal-pin');
                 const targetTab = pendingProtectedTab;
                 const targetBtn = pendingProtectedBtn;
+                unlockedTab = targetTab;
+                closeModal('modal-pin');
                 pendingProtectedTab = null;
                 pendingProtectedBtn = null;
                 if(targetTab) activateTab(targetTab, targetBtn);
@@ -388,15 +385,6 @@
             pendingProtectedTab = null;
             pendingProtectedBtn = null;
             closeModal('modal-pin');
-        }
-
-        function lockProtectedTabs() {
-            isProtectedUnlocked = false;
-            const currentSec = ['raporlar', 'kasa'].find(t => document.getElementById(`sec-${t}`).style.display === 'block');
-            if(currentSec) {
-                const firstBtn = document.querySelector('.tab-btn');
-                activateTab('masalar', firstBtn);
-            }
         }
 
         function renderAll() {
